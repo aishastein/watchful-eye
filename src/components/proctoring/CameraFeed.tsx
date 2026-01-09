@@ -1,22 +1,26 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Camera, CameraOff, RefreshCw } from 'lucide-react';
+import { Camera, CameraOff, RefreshCw, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { HeadPose, EyeGaze } from '@/types/proctoring';
 
 interface CameraFeedProps {
   onFaceDetected: (detected: boolean) => void;
+  onFaceCountChange: (count: number) => void;
   onHeadPoseChange: (pose: HeadPose) => void;
   onEyeGazeChange: (gaze: EyeGaze) => void;
   faceDetected: boolean;
+  faceCount: number;
   isActive: boolean;
 }
 
 export const CameraFeed = ({
   onFaceDetected,
+  onFaceCountChange,
   onHeadPoseChange,
   onEyeGazeChange,
   faceDetected,
+  faceCount,
   isActive,
 }: CameraFeedProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -46,13 +50,14 @@ export const CameraFeed = ({
         await videoRef.current.play();
         setIsLoading(false);
         onFaceDetected(true);
+        onFaceCountChange(1);
       }
     } catch (err) {
       console.error('Camera error:', err);
       setCameraError('Unable to access camera. Please grant permission.');
       setIsLoading(false);
     }
-  }, [onFaceDetected]);
+  }, [onFaceDetected, onFaceCountChange]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -64,9 +69,10 @@ export const CameraFeed = ({
       animationRef.current = null;
     }
     onFaceDetected(false);
-  }, [onFaceDetected]);
+    onFaceCountChange(0);
+  }, [onFaceDetected, onFaceCountChange]);
 
-  // Simple face detection simulation using canvas brightness analysis
+  // Enhanced face detection with multiple face simulation
   const analyzeFeed = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || !isActive) return;
 
@@ -83,22 +89,21 @@ export const CameraFeed = ({
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
 
-    // Get image data for center region (face detection simulation)
+    // Get image data for different regions
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const regionSize = 100;
 
     try {
-      const imageData = ctx.getImageData(
+      const centerRegion = ctx.getImageData(
         centerX - regionSize / 2,
         centerY - regionSize / 2,
         regionSize,
         regionSize
       );
 
-      // Calculate brightness in different regions for head pose estimation
-      const leftRegion = ctx.getImageData(0, centerY - 50, 100, 100);
-      const rightRegion = ctx.getImageData(canvas.width - 100, centerY - 50, 100, 100);
+      const leftRegion = ctx.getImageData(0, centerY - 50, 150, 100);
+      const rightRegion = ctx.getImageData(canvas.width - 150, centerY - 50, 150, 100);
       
       const getBrightness = (data: ImageData) => {
         let sum = 0;
@@ -108,15 +113,42 @@ export const CameraFeed = ({
         return sum / (data.data.length / 4);
       };
 
-      const centerBrightness = getBrightness(imageData);
+      // Calculate variance to detect face-like regions
+      const getVariance = (data: ImageData) => {
+        const brightness = getBrightness(data);
+        let variance = 0;
+        for (let i = 0; i < data.data.length; i += 4) {
+          const pixelBrightness = (data.data[i] + data.data[i + 1] + data.data[i + 2]) / 3;
+          variance += Math.pow(pixelBrightness - brightness, 2);
+        }
+        return variance / (data.data.length / 4);
+      };
+
+      const centerBrightness = getBrightness(centerRegion);
       const leftBrightness = getBrightness(leftRegion);
       const rightBrightness = getBrightness(rightRegion);
+      
+      const centerVariance = getVariance(centerRegion);
+      const leftVariance = getVariance(leftRegion);
+      const rightVariance = getVariance(rightRegion);
 
-      // Simple heuristic: if center is significantly different, face might be present
-      const facePresent = centerBrightness > 30 && centerBrightness < 220;
-      onFaceDetected(facePresent);
+      // Detect primary face
+      const primaryFacePresent = centerBrightness > 30 && centerBrightness < 220 && centerVariance > 100;
+      
+      // Detect secondary faces (high variance + moderate brightness in side regions)
+      const leftFacePresent = leftBrightness > 40 && leftBrightness < 200 && leftVariance > 400;
+      const rightFacePresent = rightBrightness > 40 && rightBrightness < 200 && rightVariance > 400;
 
-      if (facePresent) {
+      // Count total faces
+      let detectedFaces = 0;
+      if (primaryFacePresent) detectedFaces++;
+      if (leftFacePresent) detectedFaces++;
+      if (rightFacePresent) detectedFaces++;
+
+      onFaceDetected(primaryFacePresent);
+      onFaceCountChange(Math.max(detectedFaces, primaryFacePresent ? 1 : 0));
+
+      if (primaryFacePresent) {
         // Estimate head pose based on brightness distribution
         const diff = leftBrightness - rightBrightness;
         if (Math.abs(diff) > 20) {
@@ -125,7 +157,6 @@ export const CameraFeed = ({
           onHeadPoseChange('center');
         }
 
-        // Eye gaze (simplified - would need proper ML in production)
         onEyeGazeChange('center');
       }
     } catch (e) {
@@ -133,7 +164,7 @@ export const CameraFeed = ({
     }
 
     animationRef.current = requestAnimationFrame(analyzeFeed);
-  }, [isActive, onFaceDetected, onHeadPoseChange, onEyeGazeChange]);
+  }, [isActive, onFaceDetected, onFaceCountChange, onHeadPoseChange, onEyeGazeChange]);
 
   useEffect(() => {
     if (isActive) {
@@ -159,8 +190,13 @@ export const CameraFeed = ({
     };
   }, [isActive, isLoading, cameraError, analyzeFeed]);
 
+  const hasMultipleFaces = faceCount > 1;
+
   return (
-    <div className="card-glass rounded-xl overflow-hidden">
+    <div className={cn(
+      'card-glass rounded-xl overflow-hidden transition-all duration-300',
+      hasMultipleFaces && 'ring-2 ring-status-danger glow-danger'
+    )}>
       <div className="relative aspect-video bg-background/50">
         {cameraError ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-6">
@@ -191,23 +227,44 @@ export const CameraFeed = ({
             />
             <canvas ref={canvasRef} className="hidden" />
             
-            {/* Status overlay */}
+            {/* Face status overlay */}
             <div
               className={cn(
                 'absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-300',
                 faceDetected
-                  ? 'bg-status-normal/20 text-status-normal border border-status-normal/30'
+                  ? hasMultipleFaces
+                    ? 'bg-status-danger/20 text-status-danger border border-status-danger/30'
+                    : 'bg-status-normal/20 text-status-normal border border-status-normal/30'
                   : 'bg-status-danger/20 text-status-danger border border-status-danger/30'
               )}
             >
               <div
                 className={cn(
                   'w-2 h-2 rounded-full',
-                  faceDetected ? 'bg-status-normal animate-pulse' : 'bg-status-danger'
+                  faceDetected
+                    ? hasMultipleFaces
+                      ? 'bg-status-danger animate-pulse'
+                      : 'bg-status-normal animate-pulse'
+                    : 'bg-status-danger'
                 )}
               />
-              {faceDetected ? 'Face Detected' : 'No Face'}
+              {faceDetected 
+                ? hasMultipleFaces 
+                  ? `${faceCount} Faces Detected!` 
+                  : 'Face Detected'
+                : 'No Face'}
             </div>
+
+            {/* Multiple faces warning */}
+            {hasMultipleFaces && (
+              <div className="absolute bottom-4 left-4 right-4 flex items-center gap-3 px-4 py-3 bg-status-danger/20 border border-status-danger/40 rounded-lg backdrop-blur-sm animate-fade-in">
+                <Users className="w-5 h-5 text-status-danger flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-status-danger">Multiple Faces Detected</p>
+                  <p className="text-xs text-status-danger/80">Possible unauthorized assistance detected</p>
+                </div>
+              </div>
+            )}
 
             {/* Recording indicator */}
             <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-background/80 rounded-full text-sm">
@@ -224,9 +281,21 @@ export const CameraFeed = ({
           <Camera className="w-4 h-4" />
           <span>Front Camera</span>
         </div>
-        <span className="text-xs text-muted-foreground font-mono">
-          {isActive ? 'LIVE' : 'OFFLINE'}
-        </span>
+        <div className="flex items-center gap-3">
+          {faceCount > 0 && (
+            <span className={cn(
+              'text-xs font-mono px-2 py-0.5 rounded',
+              hasMultipleFaces 
+                ? 'bg-status-danger/20 text-status-danger' 
+                : 'bg-muted text-muted-foreground'
+            )}>
+              {faceCount} {faceCount === 1 ? 'face' : 'faces'}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground font-mono">
+            {isActive ? 'LIVE' : 'OFFLINE'}
+          </span>
+        </div>
       </div>
     </div>
   );

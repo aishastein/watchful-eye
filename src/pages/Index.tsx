@@ -5,6 +5,7 @@ import { StatusIndicator } from '@/components/proctoring/StatusIndicator';
 import { SuspicionScore } from '@/components/proctoring/SuspicionScore';
 import { WarningCounter } from '@/components/proctoring/WarningCounter';
 import { HeadPoseIndicator } from '@/components/proctoring/HeadPoseIndicator';
+import { FaceCountIndicator } from '@/components/proctoring/FaceCountIndicator';
 import { EventLog } from '@/components/proctoring/EventLog';
 import { PrivacyBadge } from '@/components/proctoring/PrivacyBadge';
 import { ExaminerToggle } from '@/components/proctoring/ExaminerToggle';
@@ -16,6 +17,7 @@ const Index = () => {
   const {
     state,
     setFaceDetected,
+    setFaceCount,
     setHeadPose,
     setEyeGaze,
     toggleExaminerMode,
@@ -73,9 +75,11 @@ const Index = () => {
             {/* Camera Feed */}
             <CameraFeed
               onFaceDetected={setFaceDetected}
+              onFaceCountChange={setFaceCount}
               onHeadPoseChange={setHeadPose}
               onEyeGazeChange={setEyeGaze}
               faceDetected={state.faceDetected}
+              faceCount={state.faceCount}
               isActive={isSessionActive}
             />
 
@@ -121,6 +125,12 @@ const Index = () => {
 
           {/* Right Column - Status & Logs */}
           <div className="space-y-6">
+            {/* Face Count Indicator */}
+            <FaceCountIndicator
+              count={state.faceCount}
+              faceDetected={state.faceDetected}
+            />
+
             {/* Head Pose Indicator */}
             <HeadPoseIndicator
               pose={state.headPose}
@@ -171,9 +181,9 @@ const Index = () => {
                 <p className="text-sm text-muted-foreground">Detection Status</p>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Face Detection</span>
-                    <span className={state.faceDetected ? 'status-normal' : 'status-danger'}>
-                      {state.faceDetected ? 'Active' : 'Inactive'}
+                    <span className="text-muted-foreground">Faces Detected</span>
+                    <span className={state.faceCount > 1 ? 'status-danger' : state.faceDetected ? 'status-normal' : 'status-danger'}>
+                      {state.faceCount} {state.faceCount === 1 ? 'face' : 'faces'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">

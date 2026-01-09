@@ -10,6 +10,7 @@ export const useProctoring = () => {
   const [state, setState] = useState<ProctorState>({
     status: 'normal',
     faceDetected: false,
+    faceCount: 0,
     headPose: 'center',
     eyeGaze: 'center',
     warningCount: 0,
@@ -71,6 +72,25 @@ export const useProctoring = () => {
           addEvent('face_lost', 'Face not detected - student may have left', 'warning');
         }
         return { ...prev, faceDetected: detected };
+      }
+      return prev;
+    });
+  }, [addEvent]);
+
+  const setFaceCount = useCallback((count: number) => {
+    setState(prev => {
+      if (prev.faceCount !== count) {
+        if (count > 1) {
+          addEvent('multiple_faces', `${count} faces detected - possible assistance`, 'suspicious');
+          return {
+            ...prev,
+            faceCount: count,
+            status: 'suspicious',
+            suspicionScore: Math.min(100, prev.suspicionScore + 25),
+            warningCount: prev.warningCount + 1,
+          };
+        }
+        return { ...prev, faceCount: count };
       }
       return prev;
     });
@@ -148,6 +168,7 @@ export const useProctoring = () => {
     setState({
       status: 'normal',
       faceDetected: false,
+      faceCount: 0,
       headPose: 'center',
       eyeGaze: 'center',
       warningCount: 0,
@@ -161,6 +182,7 @@ export const useProctoring = () => {
   return {
     state,
     setFaceDetected,
+    setFaceCount,
     setHeadPose,
     setEyeGaze,
     addEvent,
