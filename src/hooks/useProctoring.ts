@@ -18,6 +18,8 @@ export const useProctoring = () => {
     events: [],
     isExaminerMode: false,
     lookAwayStartTime: null,
+    audioLevel: 0,
+    isAudioDetected: false,
   });
 
   const lookAwayTimer = useRef<NodeJS.Timeout | null>(null);
@@ -136,6 +138,30 @@ export const useProctoring = () => {
     });
   }, [addEvent, incrementWarning]);
 
+  const setAudioLevel = useCallback((level: number) => {
+    setState(prev => ({ ...prev, audioLevel: level }));
+  }, []);
+
+  const setAudioDetected = useCallback((detected: boolean, level: number) => {
+    setState(prev => {
+      if (detected && !prev.isAudioDetected) {
+        addEvent('audio_detected', `Background noise detected (level: ${Math.round(level)}%)`, 'warning');
+        return {
+          ...prev,
+          isAudioDetected: true,
+          audioLevel: level,
+          suspicionScore: Math.min(100, prev.suspicionScore + 10),
+          warningCount: prev.warningCount + 1,
+          status: prev.warningCount + 1 >= WARNING_THRESHOLD ? 'suspicious' : 'warning',
+        };
+      }
+      if (!detected && prev.isAudioDetected) {
+        return { ...prev, isAudioDetected: false, audioLevel: level };
+      }
+      return { ...prev, audioLevel: level };
+    });
+  }, [addEvent]);
+
   const setEyeGaze = useCallback((gaze: EyeGaze) => {
     setState(prev => {
       if (prev.eyeGaze !== gaze) {
@@ -172,6 +198,8 @@ export const useProctoring = () => {
       headPose: 'center',
       eyeGaze: 'center',
       warningCount: 0,
+      audioLevel: 0,
+      isAudioDetected: false,
       suspicionScore: 0,
       events: [],
       isExaminerMode: false,
@@ -185,6 +213,8 @@ export const useProctoring = () => {
     setFaceCount,
     setHeadPose,
     setEyeGaze,
+    setAudioLevel,
+    setAudioDetected,
     addEvent,
     updateStatus,
     incrementWarning,
