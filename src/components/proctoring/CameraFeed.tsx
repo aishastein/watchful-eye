@@ -30,7 +30,9 @@ export const CameraFeed = ({
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number | null>(null);
 
-  const startCamera = useCallback(async () => {
+  const startCamera = async () => {
+    if (streamRef.current) return; // Already running
+    
     setIsLoading(true);
     setCameraError(null);
 
@@ -47,30 +49,33 @@ export const CameraFeed = ({
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setIsLoading(false);
-        onFaceDetected(true);
-        onFaceCountChange(1);
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().then(() => {
+            setIsLoading(false);
+          }).catch(console.error);
+        };
       }
     } catch (err) {
       console.error('Camera error:', err);
       setCameraError('Unable to access camera. Please grant permission.');
       setIsLoading(false);
     }
-  }, [onFaceDetected, onFaceCountChange]);
+  };
 
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
+  const stopCamera = () => {
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
-    onFaceDetected(false);
-    onFaceCountChange(0);
-  }, [onFaceDetected, onFaceCountChange]);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsLoading(true);
+  };
 
   // Enhanced face detection with multiple face simulation
   const analyzeFeed = useCallback(() => {
@@ -176,16 +181,18 @@ export const CameraFeed = ({
     return () => {
       stopCamera();
     };
-  }, [isActive, startCamera, stopCamera]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
 
   useEffect(() => {
-    if (isActive && !isLoading && !cameraError) {
-      analyzeFeed();
+    if (isActive && !isLoading && !cameraError && videoRef.current) {
+      animationRef.current = requestAnimationFrame(analyzeFeed);
     }
 
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
       }
     };
   }, [isActive, isLoading, cameraError, analyzeFeed]);
