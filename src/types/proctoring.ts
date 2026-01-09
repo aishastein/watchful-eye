@@ -34,4 +34,5 @@ export interface FaceLandmarks {
   leftEar: { x: number; y: number };
   rightEar: { x: number; y: number };
   chin: { x: number; y: number };
+  spectacles: {x:number; y:number};
 }
