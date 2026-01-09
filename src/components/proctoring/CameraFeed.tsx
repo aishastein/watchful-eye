@@ -3,6 +3,8 @@ import { Camera, CameraOff, RefreshCw, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { HeadPose, EyeGaze } from '@/types/proctoring';
+import { FaceMesh, Results } from '@mediapipe/face_mesh';
+import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 
 interface CameraFeedProps {
   onFaceDetected: (detected: boolean) => void;
@@ -24,156 +26,152 @@ export const CameraFeed = ({
   isActive,
 }: CameraFeedProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const streamRef = useRef<MediaStream | null>(null);
-  const animationRef = useRef<number | null>(null);
+  const faceMeshRef = useRef<FaceMesh | null>(null);
+  const cameraRef = useRef<MediaPipeCamera | null>(null);
 
-  const startCamera = async () => {
-    if (streamRef.current) return; // Already running
+  const analyzeHeadPose = useCallback((landmarks: Results['multiFaceLandmarks'][0]) => {
+    // Key landmarks for head pose estimation
+    const noseTip = landmarks[1];      // Nose tip
+    const leftEye = landmarks[33];     // Left eye inner corner
+    const rightEye = landmarks[263];   // Right eye inner corner
+    const chin = landmarks[152];       // Chin
+
+    // Calculate horizontal head rotation based on nose position relative to eyes
+    const eyeCenter = (leftEye.x + rightEye.x) / 2;
+    const noseOffset = noseTip.x - eyeCenter;
+
+    // Calculate vertical head rotation
+    const verticalOffset = noseTip.y - ((leftEye.y + rightEye.y) / 2);
+
+    // Thresholds for pose detection
+    const horizontalThreshold = 0.03;
+    const verticalThreshold = 0.05;
+
+    let pose: HeadPose = 'center';
     
+    if (Math.abs(noseOffset) > horizontalThreshold) {
+      pose = noseOffset > 0 ? 'right' : 'left';
+    } else if (verticalOffset > verticalThreshold + 0.1) {
+      pose = 'down';
+    } else if (verticalOffset < verticalThreshold - 0.02) {
+      pose = 'up';
+    }
+
+    return pose;
+  }, []);
+
+  const analyzeEyeGaze = useCallback((landmarks: Results['multiFaceLandmarks'][0]) => {
+    // Left eye landmarks
+    const leftEyeLeft = landmarks[33];
+    const leftEyeRight = landmarks[133];
+    const leftIris = landmarks[468]; // Left iris center (if available)
+
+    // Right eye landmarks  
+    const rightEyeLeft = landmarks[362];
+    const rightEyeRight = landmarks[263];
+    const rightIris = landmarks[473]; // Right iris center (if available)
+
+    // Calculate eye center and iris position
+    const leftEyeCenter = (leftEyeLeft.x + leftEyeRight.x) / 2;
+    const rightEyeCenter = (rightEyeLeft.x + rightEyeRight.x) / 2;
+
+    // Use iris position if available, otherwise estimate from landmarks
+    const leftIrisPos = leftIris?.x ?? leftEyeCenter;
+    const rightIrisPos = rightIris?.x ?? rightEyeCenter;
+
+    const leftOffset = leftIrisPos - leftEyeCenter;
+    const rightOffset = rightIrisPos - rightEyeCenter;
+    const avgOffset = (leftOffset + rightOffset) / 2;
+
+    const threshold = 0.015;
+
+    if (avgOffset > threshold) {
+      return 'right' as EyeGaze;
+    } else if (avgOffset < -threshold) {
+      return 'left' as EyeGaze;
+    }
+    return 'center' as EyeGaze;
+  }, []);
+
+  const onResults = useCallback((results: Results) => {
+    const faceCount = results.multiFaceLandmarks?.length ?? 0;
+    const detected = faceCount > 0;
+
+    onFaceDetected(detected);
+    onFaceCountChange(faceCount);
+
+    if (detected && results.multiFaceLandmarks[0]) {
+      const landmarks = results.multiFaceLandmarks[0];
+      const headPose = analyzeHeadPose(landmarks);
+      const eyeGaze = analyzeEyeGaze(landmarks);
+      
+      onHeadPoseChange(headPose);
+      onEyeGazeChange(eyeGaze);
+    }
+  }, [onFaceDetected, onFaceCountChange, onHeadPoseChange, onEyeGazeChange, analyzeHeadPose, analyzeEyeGaze]);
+
+  const initializeFaceMesh = useCallback(async () => {
+    if (!videoRef.current) return;
+
     setIsLoading(true);
     setCameraError(null);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: 'user',
+      // Initialize FaceMesh
+      const faceMesh = new FaceMesh({
+        locateFile: (file) => {
+          return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
         },
       });
 
-      streamRef.current = stream;
+      faceMesh.setOptions({
+        maxNumFaces: 4,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play().then(() => {
-            setIsLoading(false);
-          }).catch(console.error);
-        };
-      }
+      faceMesh.onResults(onResults);
+      faceMeshRef.current = faceMesh;
+
+      // Initialize camera
+      const camera = new MediaPipeCamera(videoRef.current, {
+        onFrame: async () => {
+          if (videoRef.current && faceMeshRef.current) {
+            await faceMeshRef.current.send({ image: videoRef.current });
+          }
+        },
+        width: 640,
+        height: 480,
+      });
+
+      cameraRef.current = camera;
+      await camera.start();
+      setIsLoading(false);
     } catch (err) {
-      console.error('Camera error:', err);
-      setCameraError('Unable to access camera. Please grant permission.');
+      console.error('Camera/FaceMesh error:', err);
+      setCameraError('Unable to access camera or initialize face detection. Please grant permission.');
       setIsLoading(false);
     }
-  };
+  }, [onResults]);
 
-  const stopCamera = () => {
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
+  const stopCamera = useCallback(() => {
+    if (cameraRef.current) {
+      cameraRef.current.stop();
+      cameraRef.current = null;
     }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
+    if (faceMeshRef.current) {
+      faceMeshRef.current.close();
+      faceMeshRef.current = null;
     }
     setIsLoading(true);
-  };
-
-  // Enhanced face detection with multiple face simulation
-  const analyzeFeed = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || !isActive) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx || video.readyState !== 4) {
-      animationRef.current = requestAnimationFrame(analyzeFeed);
-      return;
-    }
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-
-    // Get image data for different regions
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const regionSize = 100;
-
-    try {
-      const centerRegion = ctx.getImageData(
-        centerX - regionSize / 2,
-        centerY - regionSize / 2,
-        regionSize,
-        regionSize
-      );
-
-      const leftRegion = ctx.getImageData(0, centerY - 50, 150, 100);
-      const rightRegion = ctx.getImageData(canvas.width - 150, centerY - 50, 150, 100);
-      
-      const getBrightness = (data: ImageData) => {
-        let sum = 0;
-        for (let i = 0; i < data.data.length; i += 4) {
-          sum += (data.data[i] + data.data[i + 1] + data.data[i + 2]) / 3;
-        }
-        return sum / (data.data.length / 4);
-      };
-
-      // Calculate variance to detect face-like regions
-      const getVariance = (data: ImageData) => {
-        const brightness = getBrightness(data);
-        let variance = 0;
-        for (let i = 0; i < data.data.length; i += 4) {
-          const pixelBrightness = (data.data[i] + data.data[i + 1] + data.data[i + 2]) / 3;
-          variance += Math.pow(pixelBrightness - brightness, 2);
-        }
-        return variance / (data.data.length / 4);
-      };
-
-      const centerBrightness = getBrightness(centerRegion);
-      const leftBrightness = getBrightness(leftRegion);
-      const rightBrightness = getBrightness(rightRegion);
-      
-      const centerVariance = getVariance(centerRegion);
-      const leftVariance = getVariance(leftRegion);
-      const rightVariance = getVariance(rightRegion);
-
-      // Detect primary face
-      const primaryFacePresent = centerBrightness > 30 && centerBrightness < 220 && centerVariance > 100;
-      
-      // Detect secondary faces (high variance + moderate brightness in side regions)
-      const leftFacePresent = leftBrightness > 40 && leftBrightness < 200 && leftVariance > 400;
-      const rightFacePresent = rightBrightness > 40 && rightBrightness < 200 && rightVariance > 400;
-
-      // Count total faces
-      let detectedFaces = 0;
-      if (primaryFacePresent) detectedFaces++;
-      if (leftFacePresent) detectedFaces++;
-      if (rightFacePresent) detectedFaces++;
-
-      onFaceDetected(primaryFacePresent);
-      onFaceCountChange(Math.max(detectedFaces, primaryFacePresent ? 1 : 0));
-
-      if (primaryFacePresent) {
-        // Estimate head pose based on brightness distribution
-        const diff = leftBrightness - rightBrightness;
-        if (Math.abs(diff) > 20) {
-          onHeadPoseChange(diff > 0 ? 'left' : 'right');
-        } else {
-          onHeadPoseChange('center');
-        }
-
-        onEyeGazeChange('center');
-      }
-    } catch (e) {
-      // Canvas might be tainted if video source is cross-origin
-    }
-
-    animationRef.current = requestAnimationFrame(analyzeFeed);
-  }, [isActive, onFaceDetected, onFaceCountChange, onHeadPoseChange, onEyeGazeChange]);
+  }, []);
 
   useEffect(() => {
     if (isActive) {
-      startCamera();
+      initializeFaceMesh();
     } else {
       stopCamera();
     }
@@ -181,21 +179,7 @@ export const CameraFeed = ({
     return () => {
       stopCamera();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive]);
-
-  useEffect(() => {
-    if (isActive && !isLoading && !cameraError && videoRef.current) {
-      animationRef.current = requestAnimationFrame(analyzeFeed);
-    }
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-        animationRef.current = null;
-      }
-    };
-  }, [isActive, isLoading, cameraError, analyzeFeed]);
+  }, [isActive, initializeFaceMesh, stopCamera]);
 
   const hasMultipleFaces = faceCount > 1;
 
@@ -210,7 +194,7 @@ export const CameraFeed = ({
             <CameraOff className="w-12 h-12 mb-4 opacity-50" />
             <p className="text-sm text-center mb-4">{cameraError}</p>
             <Button
-              onClick={startCamera}
+              onClick={initializeFaceMesh}
               variant="secondary"
               size="sm"
               className="gap-2"
@@ -222,7 +206,7 @@ export const CameraFeed = ({
         ) : isLoading ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
             <div className="w-12 h-12 mb-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm">Initializing camera...</p>
+            <p className="text-sm">Initializing face detection...</p>
           </div>
         ) : (
           <>
@@ -232,7 +216,6 @@ export const CameraFeed = ({
               playsInline
               muted
             />
-            <canvas ref={canvasRef} className="hidden" />
             
             {/* Face status overlay */}
             <div
