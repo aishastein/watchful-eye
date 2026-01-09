@@ -7,7 +7,7 @@ export type EyeGaze = 'center' | 'left' | 'right';
 export interface ProctorEvent {
   id: string;
   timestamp: Date;
-  type: 'face_lost' | 'head_pose' | 'eye_gaze' | 'warning' | 'status_change' | 'multiple_faces';
+  type: 'face_lost' | 'head_pose' | 'eye_gaze' | 'warning' | 'status_change' | 'multiple_faces' | 'audio_detected';
   description: string;
   severity: ProctorStatus;
 }
@@ -23,6 +23,8 @@ export interface ProctorState {
   events: ProctorEvent[];
   isExaminerMode: boolean;
   lookAwayStartTime: number | null;
+  audioLevel: number;
+  isAudioDetected: boolean;
 }
 
 export interface FaceLandmarks {

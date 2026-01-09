@@ -6,6 +6,7 @@ import { SuspicionScore } from '@/components/proctoring/SuspicionScore';
 import { WarningCounter } from '@/components/proctoring/WarningCounter';
 import { HeadPoseIndicator } from '@/components/proctoring/HeadPoseIndicator';
 import { FaceCountIndicator } from '@/components/proctoring/FaceCountIndicator';
+import { AudioMonitor } from '@/components/proctoring/AudioMonitor';
 import { EventLog } from '@/components/proctoring/EventLog';
 import { PrivacyBadge } from '@/components/proctoring/PrivacyBadge';
 import { ExaminerToggle } from '@/components/proctoring/ExaminerToggle';
@@ -20,6 +21,8 @@ const Index = () => {
     setFaceCount,
     setHeadPose,
     setEyeGaze,
+    setAudioLevel,
+    setAudioDetected,
     toggleExaminerMode,
     resetSession,
     addEvent,
@@ -125,6 +128,15 @@ const Index = () => {
 
           {/* Right Column - Status & Logs */}
           <div className="space-y-6">
+            {/* Audio Monitor */}
+            <AudioMonitor
+              isActive={isSessionActive}
+              audioLevel={state.audioLevel}
+              isAudioDetected={state.isAudioDetected}
+              onAudioLevelChange={setAudioLevel}
+              onAudioDetected={setAudioDetected}
+            />
+
             {/* Face Count Indicator */}
             <FaceCountIndicator
               count={state.faceCount}
@@ -184,6 +196,12 @@ const Index = () => {
                     <span className="text-muted-foreground">Faces Detected</span>
                     <span className={state.faceCount > 1 ? 'status-danger' : state.faceDetected ? 'status-normal' : 'status-danger'}>
                       {state.faceCount} {state.faceCount === 1 ? 'face' : 'faces'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Audio Level</span>
+                    <span className={state.isAudioDetected ? 'status-danger' : 'text-foreground'}>
+                      {Math.round(state.audioLevel)}%
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">

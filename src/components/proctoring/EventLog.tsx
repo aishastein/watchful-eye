@@ -1,7 +1,7 @@
 import { ProctorEvent } from '@/types/proctoring';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Eye, User, AlertTriangle, Activity, Users } from 'lucide-react';
+import { Eye, User, AlertTriangle, Activity, Users, Volume2 } from 'lucide-react';
 
 interface EventLogProps {
   events: ProctorEvent[];
@@ -14,6 +14,7 @@ const eventIcons = {
   warning: AlertTriangle,
   status_change: Activity,
   multiple_faces: Users,
+  audio_detected: Volume2,
 };
 
 const severityClasses = {
