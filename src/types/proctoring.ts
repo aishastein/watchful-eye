@@ -7,7 +7,7 @@ export type EyeGaze = 'center' | 'left' | 'right';
 export interface ProctorEvent {
   id: string;
   timestamp: Date;
-  type: 'face_lost' | 'head_pose' | 'eye_gaze' | 'warning' | 'status_change';
+  type: 'face_lost' | 'head_pose' | 'eye_gaze' | 'warning' | 'status_change' | 'multiple_faces';
   description: string;
   severity: ProctorStatus;
 }
@@ -15,6 +15,7 @@ export interface ProctorEvent {
 export interface ProctorState {
   status: ProctorStatus;
   faceDetected: boolean;
+  faceCount: number;
   headPose: HeadPose;
   eyeGaze: EyeGaze;
   warningCount: number;
