@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Play, Square, RotateCcw, Shield } from 'lucide-react';
 
 const Index = () => {
-  const [isSessionActive, setIsSessionActive] = useState(false);
+  const [isSessionActive, setIsSessionActive] = useState(true);
   const {
     state,
     setFaceDetected,
