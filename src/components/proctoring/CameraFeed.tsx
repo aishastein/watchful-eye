@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { HeadPose, EyeGaze } from '@/types/proctoring';
 import { FaceMesh, Results, NormalizedLandmarkList } from '@mediapipe/face_mesh';
-import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 
 // Face mesh connections for drawing the mesh lines
 const FACEMESH_TESSELATION = [
@@ -63,7 +62,6 @@ export const CameraFeed = ({
   const [showLandmarks, setShowLandmarks] = useState(true);
   const [landmarks, setLandmarks] = useState<NormalizedLandmarkList | null>(null);
   const faceMeshRef = useRef<FaceMesh | null>(null);
-  const cameraRef = useRef<MediaPipeCamera | null>(null);
 
   const analyzeHeadPose = useCallback((landmarks: Results['multiFaceLandmarks'][0]) => {
     // Key landmarks for head pose estimation
@@ -282,7 +280,20 @@ export const CameraFeed = ({
     setCameraError(null);
 
     try {
-      // Initialize FaceMesh
+      // First, get camera stream directly so video shows immediately
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: 640, height: 480 },
+        audio: false,
+      });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      
+      setIsLoading(false);
+
+      // Then initialize FaceMesh asynchronously
       const faceMesh = new FaceMesh({
         locateFile: (file) => {
           return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
@@ -299,36 +310,37 @@ export const CameraFeed = ({
       faceMesh.onResults(onResults);
       faceMeshRef.current = faceMesh;
 
-      // Initialize camera
-      const camera = new MediaPipeCamera(videoRef.current, {
-        onFrame: async () => {
-          if (videoRef.current && faceMeshRef.current) {
-            await faceMeshRef.current.send({ image: videoRef.current });
-          }
-        },
-        width: 640,
-        height: 480,
-      });
-
-      cameraRef.current = camera;
-      await camera.start();
-      setIsLoading(false);
+      // Start processing frames
+      const processFrame = async () => {
+        if (videoRef.current && faceMeshRef.current && videoRef.current.readyState >= 2) {
+          await faceMeshRef.current.send({ image: videoRef.current });
+        }
+        if (faceMeshRef.current) {
+          requestAnimationFrame(processFrame);
+        }
+      };
+      
+      requestAnimationFrame(processFrame);
+      
     } catch (err) {
       console.error('Camera/FaceMesh error:', err);
-      setCameraError('Unable to access camera or initialize face detection. Please grant permission.');
+      setCameraError('Unable to access camera. Please grant camera permission and reload.');
       setIsLoading(false);
     }
   }, [onResults]);
 
   const stopCamera = useCallback(() => {
-    if (cameraRef.current) {
-      cameraRef.current.stop();
-      cameraRef.current = null;
+    // Stop the video stream
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
     if (faceMeshRef.current) {
       faceMeshRef.current.close();
       faceMeshRef.current = null;
     }
+    setLandmarks(null);
     setIsLoading(true);
   }, []);
 
