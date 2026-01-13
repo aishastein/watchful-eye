@@ -81,8 +81,8 @@ ProctorAI was built with the belief that proctoring shouldn't be "Spyware."
 ## 👥 The Team
 Built with Passion by **Team Titans** 🛠️
 
-- **Aisha** (Lead Architect)
-- **Titans Team** (The Force behind the Logic)
+- **Aisha**
+- **Ayush**
 
 ---
 
