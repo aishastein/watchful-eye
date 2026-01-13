@@ -87,3 +87,34 @@ Built with Passion by **Team Titans** 🛠️
 ---
 
 > *"The eye that never sleeps, the integrity that never fails."* 🦅
+5. **Access the Portal**
+   Open `http://localhost:5173` in your browser.
+
+---
+
+## 💻 How to Use
+
+1. **Grant Permission**: Click "Start Session" and allow camera/microphone access.
+2. **Calibration**: Ensure your face is centered. You'll see the **Green Mesh** confirm detection.
+3. **The Test**: Try looking at your phone or inviting a friend into the frame—watch how the system reacts!
+4. **Examiner Mode**: Toggle the switch in the top right to see the analytics dashboard.
+
+---
+
+## 🔐 Privacy & Ethics
+ProctorAI was built with the belief that proctoring shouldn't be "Spyware." 
+- ✅ **No Cloud Video Storage**
+- ✅ **Transparent Violation Logging**
+- ✅ **Local AI Inference**
+
+---
+
+## 👥 The Team
+Built with Passion by **Team Titans** 🛠️
+
+- **Aisha**
+- **Ayush**
+
+---
+
+> *"The eye that never sleeps, the integrity that never fails."* 🦅
