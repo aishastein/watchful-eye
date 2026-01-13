@@ -1,73 +1,89 @@
-# Welcome to your Lovable project
+# 🦅 ProctorAI: The Watchful Eye
+### **"Integrity through Innovation"**
 
-## Project info
+Welcome to **ProctorAI**, a state-of-the-art, privacy-first AI proctoring system designed to ensure academic integrity without compromising user privacy. Built by **Team Titans**, this project turns a standard webcam into a high-precision monitoring tool.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+---
 
-## How can I edit this code?
+## 🚀 The Mission
+In the world of online exams, trust is everything. ProctorAI uses cutting-edge computer vision to monitor student behavior in real-time, detecting everything from unauthorized guests to "suspicious" eye movements—all while processing data **locally on the device.**
 
-There are several ways of editing your application.
+---
 
-**Use Lovable**
+## ✨ Key Features
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- 👤 **Face Recognition & Tracking**: Detects if the student is present and sounds the alarm if more than one person enters the frame.
+- 📐 **Head Pose Estimation**: Analyzes 3D head rotation. If a student looks away from the screen for too long, it’s logged as an incident.
+- 👁️ **Eye Gaze Analysis**: Tracks whether eyes are focused on the exam or wandering toward "external resources."
+- 🎙️ **Audio Surveillance**: Monitors background noise and detects talking using real-time decibel analysis.
+- 📊 **Dynamic Suspicion Score**: A real-time severity-weighted score that tells the examiner exactly how "unusual" the behavior is.
+- 🛡️ **Privacy First**: No video is ever sent to a server. All AI processing happens right in the student's browser.
+- 🌑 **Premium UI**: A sleek, dark-mode "Glassmorphic" interface that feels like a mission control center.
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## 🛠 Tech Stack
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+| Technology | Purpose |
+| :--- | :--- |
+| **React + Vite** | High-performance frontend framework |
+| **MediaPipe** | Google's elite AI models for Face & Gaze detection |
+| **Tailwind CSS** | Styling & UI responsiveness |
+| **Lucide Icons** | Beautiful, minimal iconography |
+| **Supabase** | Backend infrastructure for secure data logging |
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 📦 Installation & Setup
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Want to run the Watchful Eye on your local machine? Follow these steps:
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+1. **Clone the Repo**
+   ```bash
+   git clone https://github.com/aishastein/watchful-eye.git
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+2. **Install Dependencies** (Get the engine ready)
+   ```bash
+   npm install
+   ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+3. **Set Up Environments**
+   Create a `.env` file in the root and add your Supabase credentials (see `.env.example`).
 
-**Edit a file directly in GitHub**
+4. **Launch the Engine**
+   ```bash
+   npm run dev
+   ```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+5. **Access the Portal**
+   Open `http://localhost:5173` in your browser.
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 💻 How to Use
 
-## What technologies are used for this project?
+1. **Grant Permission**: Click "Start Session" and allow camera/microphone access.
+2. **Calibration**: Ensure your face is centered. You'll see the **Green Mesh** confirm detection.
+3. **The Test**: Try looking at your phone or inviting a friend into the frame—watch how the system reacts!
+4. **Examiner Mode**: Toggle the switch in the top right to see the analytics dashboard.
 
-This project is built with:
+---
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🔐 Privacy & Ethics
+ProctorAI was built with the belief that proctoring shouldn't be "Spyware." 
+- ✅ **No Cloud Video Storage**
+- ✅ **Transparent Violation Logging**
+- ✅ **Local AI Inference**
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## 👥 The Team
+Built with Passion by **Team Titans** 🛠️
 
-## Can I connect a custom domain to my Lovable project?
+- **Aisha** (Lead Architect)
+- **Titans Team** (The Force behind the Logic)
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+> *"The eye that never sleeps, the integrity that never fails."* 🦅
